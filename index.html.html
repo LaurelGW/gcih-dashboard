@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GCIH Credentialing Status Dashboard</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --blue:#1a4a8a;--blue-light:#2563eb;--bg:#f4f6f9;--white:#fff;
+  --green:#166534;--green-bg:#dcfce7;--green-border:#86efac;
+  --red:#991b1b;--red-bg:#fee2e2;--red-border:#fca5a5;
+  --gray:#6b7280;--border:#e5e7eb;--radius:8px;--radius-lg:12px;
+  --shadow:0 1px 3px rgba(0,0,0,.1),0 1px 2px rgba(0,0,0,.06);
+}
+
+/* iframe-friendly: no sticky, full height scroll within container */
+html,body{height:100%;overflow-x:hidden}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:#111;display:flex;flex-direction:column}
+
+/* Header — not sticky, just flows */
+.header{background:var(--blue);color:#fff;padding:14px 20px;display:flex;align-items:center;gap:12px;flex-shrink:0}
+.header-logo{width:34px;height:34px;border-radius:7px;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;flex-shrink:0}
+.header h1{font-size:16px;font-weight:600;letter-spacing:-.01em}
+.header p{font-size:11px;opacity:.75;margin-top:1px}
+.header-right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.legend{display:flex;gap:10px;align-items:center;font-size:11px}
+.legend-item{display:flex;align-items:center;gap:4px}
+.dot{width:9px;height:9px;border-radius:50%}
+.dot-green{background:#22c55e}
+.dot-red{background:#ef4444}
+
+/* Controls — not sticky */
+.controls{background:#fff;border-bottom:1px solid var(--border);padding:10px 20px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;flex-shrink:0}
+.search-input{flex:1;min-width:160px;max-width:300px;padding:7px 10px 7px 30px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;outline:none;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%239ca3af' stroke-width='2' viewBox='0 0 24 24'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E") no-repeat 9px center / 14px}
+.search-input:focus{border-color:var(--blue-light);box-shadow:0 0 0 2px rgba(37,99,235,.1)}
+.filter-row{display:flex;gap:6px;flex-wrap:wrap}
+.filter-btn{padding:4px 12px;border:1px solid var(--border);border-radius:20px;background:transparent;font-size:12px;cursor:pointer;color:var(--gray);transition:all .15s}
+.filter-btn:hover{border-color:#9ca3af;background:var(--bg)}
+.filter-btn.active{background:var(--blue);color:#fff;border-color:var(--blue)}
+
+/* Location tabs — scrollable, not sticky */
+.tabs-bar{background:#fff;border-bottom:1px solid var(--border);padding:0 20px;display:flex;overflow-x:auto;flex-shrink:0;-webkit-overflow-scrolling:touch}
+.tabs-bar::-webkit-scrollbar{height:3px}
+.tabs-bar::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.tab-btn{padding:10px 16px;font-size:12px;background:transparent;border:none;border-bottom:2px solid transparent;cursor:pointer;color:var(--gray);white-space:nowrap;transition:all .15s;font-weight:500}
+.tab-btn:hover{color:#111}
+.tab-btn.active{color:var(--blue);border-bottom-color:var(--blue)}
+
+/* Scrollable content area fills remaining height */
+.content{padding:16px 20px;flex:1;overflow-y:auto}
+.tab-panel{display:none}
+.tab-panel.active{display:block}
+
+/* Stats bar */
+.stats-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+.stat-card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px 14px;box-shadow:var(--shadow)}
+.stat-label{font-size:11px;color:var(--gray);margin-bottom:3px}
+.stat-val{font-size:22px;font-weight:600;color:#111;line-height:1}
+.stat-sub{font-size:10px;color:var(--gray);margin-top:2px}
+.stat-card.green-card .stat-val{color:var(--green)}
+.stat-card.red-card .stat-val{color:var(--red)}
+
+/* Insurance sections */
+.ins-section{background:var(--white);border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:10px;overflow:hidden;box-shadow:var(--shadow)}
+.ins-header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;cursor:pointer;user-select:none;transition:background .1s}
+.ins-header:hover{background:var(--bg)}
+.ins-name{font-size:13px;font-weight:600;color:#111}
+.ins-meta{display:flex;align-items:center;gap:8px}
+.ins-pct{font-size:11px;color:var(--gray)}
+.mini-bar{width:70px;height:5px;background:var(--border);border-radius:3px;overflow:hidden}
+.mini-fill{height:100%;border-radius:3px;background:#22c55e}
+.chevron{font-size:11px;color:var(--gray);transition:transform .2s;display:inline-block}
+.chevron.open{transform:rotate(180deg)}
+.ins-body{display:none;padding:0 14px 12px;border-top:1px solid var(--border)}
+.ins-body.open{display:block}
+
+/* Provider grid */
+.provider-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;margin-top:10px}
+.prov-card{border-radius:var(--radius);padding:10px 12px;border:1px solid}
+.prov-card.green{background:var(--green-bg);border-color:var(--green-border)}
+.prov-card.red{background:var(--red-bg);border-color:var(--red-border)}
+.prov-name{font-size:12px;font-weight:500;margin-bottom:2px}
+.prov-card.green .prov-name{color:var(--green)}
+.prov-card.red .prov-name{color:var(--red)}
+.prov-status{font-size:11px;opacity:.8}
+.prov-card.green .prov-status{color:var(--green)}
+.prov-card.red .prov-status{color:var(--red)}
+
+.empty{padding:20px;text-align:center;color:var(--gray);font-size:13px}
+
+/* Responsive: collapse stats to 2 cols on narrow iframe */
+@media(max-width:520px){
+  .stats-bar{grid-template-columns:1fr 1fr}
+  .provider-grid{grid-template-columns:1fr 1fr}
+  .legend{display:none}
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-logo">G</div>
+  <div>
+    <h1>GCIH Credentialing Dashboard</h1>
+    <p>Provider credentialing status by location</p>
+  </div>
+  <div class="header-right">
+    <div class="legend">
+      <div class="legend-item"><div class="dot dot-green"></div><span>Participating / Approved</span></div>
+      <div class="legend-item"><div class="dot dot-red"></div><span>All other statuses</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="controls">
+  <input class="search-input" type="text" id="search" placeholder="Search provider or insurance…" oninput="applySearch()">
+  <div class="filter-row">
+    <button class="filter-btn active" onclick="setFilter(this,'all')">All</button>
+    <button class="filter-btn" onclick="setFilter(this,'green')">✓ Approved only</button>
+    <button class="filter-btn" onclick="setFilter(this,'red')">✗ Non-approved only</button>
+  </div>
+</div>
+
+<div class="tabs-bar" id="tabs-bar"></div>
+
+<div class="content" id="content"></div>
+
+<script>
+const DATA = {"FRANKLIN": {"AETNA": {"BRENNAN YOUNG": {"status": "Participating/Approved", "green": true}, "CHIP MORELLA": {"status": "Participating/Approved", "green": true}, "JEFF JORDAN": {"status": "Participating/Approved", "green": true}}, "AETNA BETTER HEALTH": {"BRENNAN YOUNG": {"status": "NON-PARTICIPATING", "green": false}, "CHIP MORELLA": {"status": "Participating/Approved", "green": true}, "JEFF JORDAN": {"status": "Participating/Approved", "green": true}}, "AETNA FIRST HEALTH": {"BRENNAN YOUNG": {"status": "Not Started", "green": false}, "CHIP MORELLA": {"status": "Started Paperwork", "green": false}, "JEFF JORDAN": {"status": "Started Paperwork", "green": false}}, "AMERICAN SPECIALITY HEALTH - CIGNA": {"BRENNAN YOUNG": {"status": "Participating/Approved", "green": true}, "CHIP MORELLA": {"status": "Participating/Approved", "green": true}, "JEFF JORDAN": {"status": "Participating/Approved", "green": true}}, "AMERIHEALTH CARITAS": {"BRENNAN YOUNG": {"status": "NON-PARTICIPATING", "green": false}, "CHIP MORELLA": {"status": "NON-PARTICIPATING", "green": false}, "JEFF JORDAN": {"status": "NON-PARTICIPATING", "green": false}}, "BCBS": {"BRENNAN YOUNG": {"status": "Participating/Approved", "green": true}, "CHIP MORELLA": {"status": "Participating/Approved", "green": true}, "JEFF JORDAN": {"status": "Participating/Approved", "green": true}}, "BLUE ADVANTAGE": {"BRENNAN YOUNG": {"status": "Participating/Approved", "green": true}, "CHIP MORELLA": {"status": "Participating/Approved", "green": true}, "JEFF JORDAN": {"status": "Participating/Approved", "green": true}}, "HEALTHY BLUE-LA MEDICAID": {"BRENNAN YOUNG": {"status": "NON-PARTICIPATING", "green": false}, "CHIP MORELLA": {"status": "Participating/Approved", "green": true}, "JEFF JORDAN": {"status": "Participating/Approved", "green": true}}, "HUMANA": {"BRENNAN YOUNG": {"status": "Participating/Approved", "green": true}, "CHIP MORELLA": {"status": "NON-PARTICIPATING", "green": false}, "JEFF JORDAN": {"status": "Participating/Approved", "green": true}}, "HUMANA HEALTHY HORIZONS": {"BRENNAN YOUNG": {"status": "NON-PARTICIPATING", "green": false}, "CHIP MORELLA": {"status": "NON-PARTICIPATING", "green": false}, "JEFF JORDAN": {"status": "NON-PARTICIPATING", "green": false}}, "HUMANA MEDICARE": {"BRENNAN YOUNG": {"status": "Participating/Approved", "green": true}, "JEFF JORDAN": {"status": "Participating/Approved", "green": true}}, "LA HEALTHCARE CONNECTIONS": {"BRENNAN YOUNG": {"status": "Participating/Approved", "green": true}, "CHIP MORELLA": {"status": "Participating/Approved", "green": true}, "JEFF JORDAN": {"status": "Participating/Approved", "green": true}}, "MEDICAID": {"BRENNAN YOUNG": {"status": "Participating/Approved", "green": true}, "CHIP MORELLA": {"status": "Participating/Approved", "green": true}, "JEFF JORDAN": {"status": "Participating/Approved", "green": true}}, "MEDICARE": {"BRENNAN YOUNG": {"status": "Participating/Approved", "green": true}, "CHIP MORELLA": {"status": "Participating/Approved", "green": true}, "JEFF JORDAN": {"status": "Participating/Approved", "green": true}}, "MEDRISK": {"BRENNAN YOUNG": {"status": "Participating/Approved", "green": true}, "CHIP MORELLA": {"status": "Participating/Approved", "green": true}, "JEFF JORDAN": {"status": "Participating/Approved", "green": true}}, "OPTUM-VA COMMUNITY CARE NETWORK": {"BRENNAN YOUNG": {"status": "NON-PARTICIPATING", "green": false}, "CHIP MORELLA": {"status": "NON-PARTICIPATING", "green": false}, "JEFF JORDAN": {"status": "NON-PARTICIPATING", "green": false}}, "PEOPLE'S HEALTH-UHC": {"BRENNAN YOUNG": {"status": "NON-PARTICIPATING", "green": false}, "CHIP MORELLA": {"status": "NON-PARTICIPATING", "green": false}, "JEFF JORDAN": {"status": "NON-PARTICIPATING", "green": false}}, "STREAMLINE": {"BRENNAN YOUNG": {"status": "Participating/Approved", "green": true}, "CHIP MORELLA": {"status": "Participating/Approved", "green": true}, "JEFF JORDAN": {"status": "Participating/Approved", "green": true}}, "TRICARE EAST REGION": {"BRENNAN YOUNG": {"status": "CERTIFIED", "green": true}, "CHIP MORELLA": {"status": "CERTIFIED", "green": true}, "JEFF JORDAN": {"status": "CERTIFIED", "green": true}}, "UHC": {"BRENNAN YOUNG": {"status": "Participating/Approved", "green": true}, "CHIP MORELLA": {"status": "NON-PARTICIPATING", "green": false}, "JEFF JORDAN": {"status": "Participating/Approved", "green": true}}, "UHC COMMUNITY PLAN-HEALTHY LA PLAN": {"BRENNAN YOUNG": {"status": "Participating/Approved", "green": true}, "CHIP MORELLA": {"status": "Participating/Approved", "green": true}, "JEFF JORDAN": {"status": "Participating/Approved", "green": true}}, "VERITY HEALTH": {"BRENNAN YOUNG": {"status": "Participating/Approved", "green": true}, "CHIP MORELLA": {"status": "Participating/Approved", "green": true}, "JEFF JORDAN": {"status": "Participating/Approved", "green": true}}, "WELLCARE": {"BRENNAN YOUNG": {"status": "Not Started", "green": false}, "CHIP MORELLA": {"status": "NON-PARTICIPATING", "green": false}, "JEFF JORDAN": {"status": "Participating/Approved", "green": true}}}, "MORGAN CITY": {"AETNA": {"BRENNAN YOUNG": {"status": "Participating/Approved", "green": true}, "CHIP MORELLA": {"status": "Participating/Approved", "green": true}, "JEFF JORDAN": {"status": "Participating/Approved", "green": true}}, "AETNA BETTER HEALTH": {"BRENNAN YOUNG": {"status": "NON-PARTICIPATING", "green": false}, "CHIP MORELLA": {"status": "Participating/Approved", "green": true}, "JEFF JORDAN": {"status": "Started Paperwork", "green": false}}, "AETNA FIRST HEALTH": {"BRENNAN YOUNG": {"status": "Not Started", "green": false}, "CHIP MORELLA": {"status": "Not Started", "green": false}, "JEFF JORDAN": {"status": "Not Started", "green": false}}, "AMERICAN SPECIALITY HEALTH - CIGNA": {"BRENNAN YOUNG": {"status": "Not Started", "green": false}, "CHIP MORELLA": {"status": "Participating/Approved", "green": true}, "JEFF JORDAN": {"status": "Participating/Approved", "green": true}}, "AMERIHEALTH CARITAS": {"BRENNAN YOUNG": {"status": "NON-PARTICIPATING", "green": false}, "CHIP MORELLA": {"status": "NON-PARTICIPATING", "green": false}, "JEFF JORDAN": {"status": "NON-PARTICIPATING", "green": false}}, "BCBS": {"BRENNAN YOUNG": {"status": "NON-PARTICIPATING", "green": false}, "CHIP MORELLA": {"status": "Participating/Approved", "green": true}, "JEFF JORDAN": {"status": "Participating/Approved", "green": true}}, "BLUE ADVANTAGE": {"BRENNAN YOUNG": {"status": "NON-PARTICIPATING", "green": false}, "CHIP MORELLA": {"status": "Participating/Approved", "green": true}, "JEFF JORDAN": {"status": "Participating/Approved", "green": true}}, "HEALTHY BLUE": {"BRENNAN YOUNG": {"status": "NON-PARTICIPATING", "green": false}}, "HEALTHY BLUE-LA MEDICAID": {"CHIP MORELLA": {"status": "NON-PARTICIPATING", "green": false}, "JEFF JORDAN": {"status": "NON-PARTICIPATING", "green": false}}, "HUMANA": {"BRENNAN YOUNG": {"status": "NON-PARTICIPATING", "green": false}, "CHIP MORELLA": {"status": "Participating/Approved", "green": true}, "JEFF JORDAN": {"status": "NON-PARTICIPATING", "green": false}}, "HUMANA HEALTHY HORIZONS": {"BRENNAN YOUNG": {"status": "NON-PARTICIPATING", "green": false}, "CHIP MORELLA": {"status": "Participating/Approved", "green": true}, "JEFF JORDAN": {"status": "NON-PARTICIPATING", "green": false}}, "HUMANA MEDICARE": {"CHIP MORELLA": {"status": "Participating/Approved", "green": true}, "JEFF JORDAN": {"status": "NON-PARTICIPATING", "green": false}}, "LA HEALTHCARE CONNECTIONS": {"BRENNAN YOUNG": {"status": "Participating/Approved", "green": true}, "CHIP MORELLA": {"status": "Not Started", "green": false}, "JEFF JORDAN": {"status": "Participating/Approved", "green": true}}, "MEDICAID": {"BRENNAN YOUNG": {"status": "Participating/Approved", "green": true}, "CHIP MORELLA": {"status": "Participating/Approved", "green": true}, "JEFF JORDAN": {"status": "Participating/Approved", "green": true}}, "MEDICARE": {"BRENNAN YOUNG": {"status": "NON-PARTICIPATING", "green": false}, "CHIP MORELLA": {"status": "Participating/Approved", "green": true}, "JEFF JORDAN": {"status": "Participating/Approved", "green": true}}, "MEDRISK": {"BRENNAN YOUNG": {"status": "Participating/Approved", "green": true}, "CHIP MORELLA": {"status": "Participating/Approved", "green": true}, "JEFF JORDAN": {"status": "Participating/Approved", "green": true}}, "OPTUM-VA COMMUNITY CARE NETWORK": {"BRENNAN YOUNG": {"status": "NON-PARTICIPATING", "green": false}, "CHIP MORELLA": {"status": "Participating/Approved", "green": true}, "JEFF JORDAN": {"status": "Participating/Approved", "green": true}}, "PEOPLE'S HEALTH-UHC": {"BRENNAN YOUNG": {"status": "Participating/Approved", "green": true}, "CHIP MORELLA": {"status": "Participating/Approved", "green": true}, "JEFF JORDAN": {"status": "Participating/Approved", "green": true}}, "STREAMLINE": {"BRENNAN YOUNG": {"status": "Participating/Approved", "green": true}, "CHIP MORELLA": {"status": "Participating/Approved", "green": true}, "JEFF JORDAN": {"status": "Participating/Approved", "green": true}}, "TRICARE EAST REGION": {"BRENNAN YOUNG": {"status": "CERTIFIED", "green": true}, "CHIP MORELLA": {"status": "CERTIFIED", "green": true}, "JEFF JORDAN": {"status": "CERTIFIED", "green": true}}, "UHC": {"BRENNAN YOUNG": {"status": "NON-PARTICIPATING", "green": false}, "CHIP MORELLA": {"status": "Participating/Approved", "green": true}, "JEFF JORDAN": {"status": "NON-PARTICIPATING", "green": false}}, "UHC COMMUNITY PLAN-HEALTHY LA PLAN": {}, "VERITY HEALTH": {"BRENNAN YOUNG": {"status": "Participating/Approved", "green": true}, "CHIP MORELLA": {"status": "Participating/Approved", "green": true}, "JEFF JORDAN": {"status": "Participating/Approved", "green": true}}, "WELLCARE": {"BRENNAN YOUNG": {"status": "NON-PARTICIPATING", "green": false}, "CHIP MORELLA": {"status": "Participating/Approved", "green": true}, "JEFF JORDAN": {"status": "NON-PARTICIPATING", "green": false}}}, "NEW IBERIA": {"AETNA": {"BRENNAN YOUNG": {"status": "Participating/Approved", "green": true}, "BRYAN HICKS": {"status": "STARTED - on Hold", "green": false}, "CHIP MORELLA": {"status": "Participating/Approved", "green": true}, "JEFF JORDAN": {"status": "Participating/Approved", "green": true}}, "AETNA BETTER HEALTH": {"BRENNAN YOUNG": {"status": "NON-PARTICIPATING", "green": false}, "BRYAN HICKS": {"status": "Not Started", "green": false}, "CHIP MORELLA": {"status": "Participating/Approved", "green": true}, "JEFF JORDAN": {"status": "Participating/Approved", "green": true}}, "AETNA FIRST HEALTH": {"BRENNAN YOUNG": {"status": "Started Paperwork", "green": false}, "BRYAN HICKS": {"status": "Not Started", "green": false}, "CHIP MORELLA": {"status": "Not Started", "green": false}, "JEFF JORDAN": {"status": "Started Paperwork", "green": false}}, "AMERICAN SPECIALITY HEALTH - CIGNA": {"BRENNAN YOUNG": {"status": "Participating/Approved", "green": true}, "BRYAN HICKS": {"status": "STARTED", "green": false}, "CHIP MORELLA": {"status": "Participating/Approved", "green": true}, "JEFF JORDAN": {"status": "Participating/Approved", "green": true}}, "AMERIHEALTH CARITAS": {"BRENNAN YOUNG": {"status": "NON-PARTICIPATING", "green": false}, "BRYAN HICKS": {"status": "Not Started", "green": false}, "CHIP MORELLA": {"status": "NON-PARTICIPATING", "green": false}, "JEFF JORDAN": {"status": "NON-PARTICIPATING", "green": false}}, "BCBS": {"BRENNAN YOUNG": {"status": "Participating/Approved", "green": true}, "BRYAN HICKS": {"status": "Not Started", "green": false}, "CHIP MORELLA": {"status": "Participating/Approved", "green": true}, "JEFF JORDAN": {"status": "Participating/Approved", "green": true}}, "BLUE ADVANTAGE": {"BRENNAN YOUNG": {"status": "Participating/Approved", "green": true}, "BRYAN HICKS": {"status": "Not Started", "green": false}, "CHIP MORELLA": {"status": "Participating/Approved", "green": true}, "JEFF JORDAN": {"status": "Participating/Approved", "green": true}}, "HEALTHY BLUE": {"BRENNAN YOUNG": {"status": "NON-PARTICIPATING", "green": false}}, "HEALTHY BLUE-LA MEDICAID": {"BRYAN HICKS": {"status": "Not Started", "green": false}, "CHIP MORELLA": {"status": "Participating/Approved", "green": true}, "JEFF JORDAN": {"status": "Participating/Approved", "green": true}}, "HUMANA": {"BRENNAN YOUNG": {"status": "Participating/Approved", "green": true}, "BRYAN HICKS": {"status": "2026-05-27 00:00:00", "green": false}, "CHIP MORELLA": {"status": "NON-PARTICIPATING", "green": false}, "JEFF JORDAN": {"status": "Participating/Approved", "green": true}}, "HUMANA HEALTHY HORIZONS": {"BRENNAN YOUNG": {"status": "NON-PARTICIPATING", "green": false}, "BRYAN HICKS": {"status": "Not Started", "green": false}, "CHIP MORELLA": {"status": "NON-PARTICIPATING", "green": false}, "JEFF JORDAN": {"status": "NON-PARTICIPATING", "green": false}}, "HUMANA MEDICARE": {"BRENNAN YOUNG": {"status": "Participating/Approved", "green": true}, "BRYAN HICKS": {"status": "Not Started", "green": false}, "CHIP MORELLA": {"status": "NON-PARTICIPATING", "green": false}, "JEFF JORDAN": {"status": "Participating/Approved", "green": true}}, "LA HEALTHCARE CONNECTIONS": {"BRENNAN YOUNG": {"status": "Participating/Approved", "green": true}, "BRYAN HICKS": {"status": "Not Started", "green": false}, "CHIP MORELLA": {"status": "Participating/Approved", "green": true}, "JEFF JORDAN": {"status": "Participating/Approved", "green": true}}, "MEDICAID": {"BRENNAN YOUNG": {"status": "Participating/Approved", "green": true}, "BRYAN HICKS": {"status": "2026-05-27 00:00:00", "green": false}, "CHIP MORELLA": {"status": "Participating/Approved", "green": true}, "JEFF JORDAN": {"status": "Participating/Approved", "green": true}}, "MEDICARE": {"BRENNAN YOUNG": {"status": "Participating/Approved", "green": true}, "BRYAN HICKS": {"status": "Not Started", "green": false}, "CHIP MORELLA": {"status": "Participating/Approved", "green": true}, "JEFF JORDAN": {"status": "Participating/Approved", "green": true}}, "MEDRISK": {"BRYAN HICKS": {"status": "Not Started", "green": false}, "CHIP MORELLA": {"status": "Participating/Approved", "green": true}, "JEFF JORDAN": {"status": "Participating/Approved", "green": true}}, "OPTUM-VA COMMUNITY CARE NETWORK": {"BRENNAN YOUNG": {"status": "NON-PARTICIPATING", "green": false}, "BRYAN HICKS": {"status": "Not Started", "green": false}, "JEFF JORDAN": {"status": "NON-PARTICIPATING", "green": false}}, "PEOPLE'S HEALTH-UHC": {"BRENNAN YOUNG": {"status": "NON-PARTICIPATING", "green": false}, "BRYAN HICKS": {"status": "Not Started", "green": false}, "CHIP MORELLA": {"status": "NON-PARTICIPATING", "green": false}, "JEFF JORDAN": {"status": "NON-PARTICIPATING", "green": false}}, "STREAMLINE": {"BRENNAN YOUNG": {"status": "Participating/Approved", "green": true}, "BRYAN HICKS": {"status": "Not Started", "green": false}, "CHIP MORELLA": {"status": "Participating/Approved", "green": true}, "JEFF JORDAN": {"status": "Participating/Approved", "green": true}}, "TRICARE EAST REGION": {"BRENNAN YOUNG": {"status": "CERTIFIED", "green": true}, "CHIP MORELLA": {"status": "CERTIFIED", "green": true}, "JEFF JORDAN": {"status": "CERTIFIED", "green": true}}, "TRICARE WEST REGION": {"BRYAN HICKS": {"status": "Not Started", "green": false}}, "UHC": {"BRENNAN YOUNG": {"status": "Participating/Approved", "green": true}, "BRYAN HICKS": {"status": "STARTED - sub req", "green": false}, "CHIP MORELLA": {"status": "NON-PARTICIPATING", "green": false}, "JEFF JORDAN": {"status": "Participating/Approved", "green": true}}, "UHC COMMUNITY PLAN-HEALTHY LA PLAN": {"BRENNAN YOUNG": {"status": "Participating/Approved", "green": true}, "BRYAN HICKS": {"status": "Not Started", "green": false}, "CHIP MORELLA": {"status": "Participating/Approved", "green": true}, "JEFF JORDAN": {"status": "Participating/Approved", "green": true}}, "VERITY HEALTH": {"BRENNAN YOUNG": {"status": "Participating/Approved", "green": true}, "BRYAN HICKS": {"status": "Participating/Approved", "green": true}, "CHIP MORELLA": {"status": "Participating/Approved", "green": true}, "JEFF JORDAN": {"status": "Participating/Approved", "green": true}}, "WELLCARE": {"BRENNAN YOUNG": {"status": "NON-PARTICIPATING", "green": false}, "BRYAN HICKS": {"status": "Not Started", "green": false}, "CHIP MORELLA": {"status": "NON-PARTICIPATING", "green": false}, "JEFF JORDAN": {"status": "NON-PARTICIPATING", "green": false}}}, "OCEAN SPRINGS": {"AETNA": {"GARRETT TURNER": {"status": "Participating/Approved", "green": true}, "KARL WINEGAR": {"status": "Participating/Approved", "green": true}, "KAYLEIGH SHORTER": {"status": "Participating/Approved", "green": true}, "MADISON LOUVIERE": {"status": "Participating/Approved", "green": true}, "SARAYA BRAUN": {"status": "Participating/Approved", "green": true}}, "AETNA FIRST HEALTH": {"GARRETT TURNER": {"status": "Participating/Approved", "green": true}, "KARL WINEGAR": {"status": "Participating/Approved", "green": true}, "KAYLEIGH SHORTER": {"status": "Participating/Approved", "green": true}, "MADISON LOUVIERE": {"status": "Participating/Approved", "green": true}, "SARAYA BRAUN": {"status": "Participating/Approved", "green": true}}, "ALLWELL": {"GARRETT TURNER": {"status": "Submitted to Payor", "green": false}, "KARL WINEGAR": {"status": "Participating/Approved", "green": true}, "KAYLEIGH SHORTER": {"status": "Plan Termed 12/31/2025", "green": false}, "MADISON LOUVIERE": {"status": "Plan Termed 12/31/2025", "green": false}, "SARAYA BRAUN": {"status": "Not Started", "green": false}}, "AMBETTER MAGNOLIA HEALTH": {"GARRETT TURNER": {"status": "Submitted to Payor", "green": false}, "KARL WINEGAR": {"status": "Participating/Approved", "green": true}, "KAYLEIGH SHORTER": {"status": "Participating/Approved", "green": true}, "MADISON LOUVIERE": {"status": "Participating/Approved", "green": true}, "SARAYA BRAUN": {"status": "Participating/Approved", "green": true}}, "AMERICAN HEALTH PLAN": {"KARL WINEGAR": {"status": "Participating/Approved", "green": true}}, "BCBS": {"GARRETT TURNER": {"status": "Participating/Approved", "green": true}, "KARL WINEGAR": {"status": "Participating/Approved", "green": true}, "KAYLEIGH SHORTER": {"status": "Participating/Approved", "green": true}, "MADISON LOUVIERE": {"status": "Participating/Approved", "green": true}, "SARAYA BRAUN": {"status": "Participating/Approved", "green": true}}, "BLUE ADVANTAGE": {"GARRETT TURNER": {"status": "Participating/Approved", "green": true}, "KARL WINEGAR": {"status": "Participating/Approved", "green": true}, "KAYLEIGH SHORTER": {"status": "Participating/Approved", "green": true}, "MADISON LOUVIERE": {"status": "Participating/Approved", "green": true}, "SARAYA BRAUN": {"status": "Participating/Approved", "green": true}}, "CHAMP VA": {"GARRETT TURNER": {"status": "Participating/Approved", "green": true}, "KARL WINEGAR": {"status": "Participating/Approved", "green": true}, "KAYLEIGH SHORTER": {"status": "Not Started", "green": false}, "MADISON LOUVIERE": {"status": "Not Started", "green": false}, "SARAYA BRAUN": {"status": "Participating/Approved", "green": true}}, "CIGNA": {"KARL WINEGAR": {"status": "Submitted to Payor", "green": false}}, "CIGNA EVERNORTH": {"GARRETT TURNER": {"status": "Participating/Approved", "green": true}, "KAYLEIGH SHORTER": {"status": "Participating/Approved", "green": true}, "MADISON LOUVIERE": {"status": "Participating/Approved", "green": true}, "SARAYA BRAUN": {"status": "Participating/Approved", "green": true}}, "FIRST CHOICE OF MS": {"GARRETT TURNER": {"status": "Submitted to Payor", "green": false}, "KARL WINEGAR": {"status": "Participating/Approved", "green": true}}, "HUMANA": {"GARRETT TURNER": {"status": "Submitted to Payor", "green": false}, "KARL WINEGAR": {"status": "", "green": false}, "KAYLEIGH SHORTER": {"status": "NO OPEN PANEL FOR BH", "green": false}, "MADISON LOUVIERE": {"status": "NO OPEN PANEL FOR BH", "green": false}}, "MAGNOLIA HEALTH": {"GARRETT TURNER": {"status": "Submitted to Payor", "green": false}, "KARL WINEGAR": {"status": "Participating/Approved", "green": true}, "KAYLEIGH SHORTER": {"status": "Participating/Approved", "green": true}, "MADISON LOUVIERE": {"status": "Participating/Approved", "green": true}, "SARAYA BRAUN": {"status": "Participating/Approved", "green": true}}, "MEDICAID": {"GARRETT TURNER": {"status": "Participating/Approved", "green": true}, "KARL WINEGAR": {"status": "Participating/Approved", "green": true}, "KAYLEIGH SHORTER": {"status": "Participating/Approved", "green": true}, "MADISON LOUVIERE": {"status": "Participating/Approved", "green": true}, "SARAYA BRAUN": {"status": "Participating/Approved", "green": true}}, "MEDICARE": {"GARRETT TURNER": {"status": "Participating/Approved", "green": true}, "KARL WINEGAR": {"status": "Participating/Approved", "green": true}, "KAYLEIGH SHORTER": {"status": "Participating/Approved", "green": true}, "MADISON LOUVIERE": {"status": "Participating/Approved", "green": true}, "SARAYA BRAUN": {"status": "Participating/Approved", "green": true}}, "MOLINA CHIP": {"GARRETT TURNER": {"status": "Submitted to Payor", "green": false}, "KARL WINEGAR": {"status": "Participating/Approved", "green": true}, "KAYLEIGH SHORTER": {"status": "Participating/Approved", "green": true}, "MADISON LOUVIERE": {"status": "Participating/Approved", "green": true}, "SARAYA BRAUN": {"status": "Participating/Approved", "green": true}}, "MOLINA MARKETPLACE": {"GARRETT TURNER": {"status": "", "green": false}, "KARL WINEGAR": {"status": "Participating/Approved", "green": true}, "KAYLEIGH SHORTER": {"status": "Participating/Approved", "green": true}, "MADISON LOUVIERE": {"status": "Participating/Approved", "green": true}, "SARAYA BRAUN": {"status": "Participating/Approved", "green": true}}, "MOLINA MS CAN": {"GARRETT TURNER": {"status": "Submitted to Payor", "green": false}, "KARL WINEGAR": {"status": "Participating/Approved", "green": true}, "KAYLEIGH SHORTER": {"status": "Participating/Approved", "green": true}, "MADISON LOUVIERE": {"status": "Participating/Approved", "green": true}}, "MS PHYSICIANS CARE NETWORK": {"GARRETT TURNER": {"status": "Submitted to Payor", "green": false}, "KARL WINEGAR": {"status": "Participating/Approved", "green": true}, "KAYLEIGH SHORTER": {"status": "Participating/Approved", "green": true}, "MADISON LOUVIERE": {"status": "Participating/Approved", "green": true}, "SARAYA BRAUN": {"status": "Participating/Approved", "green": true}}, "OPTUM-VA COMMUNITY CARE NETWORK": {"GARRETT TURNER": {"status": "Submitted to Payor", "green": false}, "KARL WINEGAR": {"status": "Submitted to Payor", "green": false}, "KAYLEIGH SHORTER": {"status": "Participating/Approved", "green": true}, "MADISON LOUVIERE": {"status": "Participating/Approved", "green": true}, "SARAYA BRAUN": {"status": "Participating/Approved", "green": true}}, "PRIMEWELL HEALTH": {"KARL WINEGAR": {"status": "Participating/Approved", "green": true}, "SARAYA BRAUN": {"status": "Not Started", "green": false}}, "SHARED HEALTH": {"SARAYA BRAUN": {"status": "Participating/Approved", "green": true}}, "SIMPRA": {"KARL WINEGAR": {"status": "Participating/Approved", "green": true}}, "TRICARE EAST REGION": {"GARRETT TURNER": {"status": "Participating/Approved", "green": true}, "KARL WINEGAR": {"status": "Participating/Approved", "green": true}, "KAYLEIGH SHORTER": {"status": "Certified", "green": true}, "MADISON LOUVIERE": {"status": "CERTIFIED", "green": true}, "SARAYA BRAUN": {"status": "CERTIFIED", "green": true}}, "UHC": {"GARRETT TURNER": {"status": "Participating/Approved", "green": true}, "KARL WINEGAR": {"status": "Participating/Approved", "green": true}, "KAYLEIGH SHORTER": {"status": "Participating/Approved", "green": true}, "MADISON LOUVIERE": {"status": "Participating/Approved", "green": true}, "SARAYA BRAUN": {"status": "Participating/Approved", "green": true}}, "UHC GEHA": {"KARL WINEGAR": {"status": "", "green": false}}, "UHC OPTUM BH": {"GARRETT TURNER": {"status": "Participating/Approved", "green": true}, "KARL WINEGAR": {"status": "Submitted to Payor", "green": false}, "KAYLEIGH SHORTER": {"status": "Participating/Approved", "green": true}, "MADISON LOUVIERE": {"status": "Participating/Approved", "green": true}, "SARAYA BRAUN": {"status": "Participating/Approved", "green": true}}, "UHC UMR": {"KARL WINEGAR": {"status": "", "green": false}}, "VANTAGE HEALTH": {"SARAYA BRAUN": {"status": "Not Started", "green": false}}, "WELLCARE": {"KARL WINEGAR": {"status": "Participating/Approved", "green": true}, "MADISON LOUVIERE": {"status": "Participating/Approved", "green": true}, "SARAYA BRAUN": {"status": "Not Started", "green": false}}}, "PRAIRIEVILLE": {"AETNA": {"JESSICA EZEJIMOFOR": {"status": "Participating/Approved", "green": true}, "KARL WINEGAR": {"status": "Participating/Approved", "green": true}, "MEGAN MORAN": {"status": "Submitted to Payor", "green": false}}, "AETNA BETTER HEALTH": {"JESSICA EZEJIMOFOR": {"status": "Participating/Approved", "green": true}, "KARL WINEGAR": {"status": "Participating/Approved", "green": true}, "MEGAN MORAN": {"status": "Submitted to Payor", "green": false}}, "AMBETTER MAGNOLIA HEALTH": {"KARL WINEGAR": {"status": "Not Started", "green": false}}, "AMERIHEALTH CARITAS": {"JESSICA EZEJIMOFOR": {"status": "Submitted to Payor", "green": false}, "KARL WINEGAR": {"status": "Participating/Approved", "green": true}, "MEGAN MORAN": {"status": "Submitted to Payor", "green": false}}, "BCBS": {"JESSICA EZEJIMOFOR": {"status": "Participating/Approved", "green": true}, "KARL WINEGAR": {"status": "Participating/Approved", "green": true}, "MEGAN MORAN": {"status": "Submitted to Payor", "green": false}}, "BLUE ADVANTAGE": {"JESSICA EZEJIMOFOR": {"status": "Participating/Approved", "green": true}, "KARL WINEGAR": {"status": "Participating/Approved", "green": true}, "MEGAN MORAN": {"status": "Submitted to Payor", "green": false}}, "CIGNA": {"KARL WINEGAR": {"status": "Participating/Approved", "green": true}}, "CIGNA EVERNORTH": {"JESSICA EZEJIMOFOR": {"status": "Participating/Approved", "green": true}, "MEGAN MORAN": {"status": "Submitted to Payor", "green": false}}, "HEALTHY BLUE": {"JESSICA EZEJIMOFOR": {"status": "Participating/Approved", "green": true}, "KARL WINEGAR": {"status": "Participating/Approved", "green": true}, "MEGAN MORAN": {"status": "Pending State MCD", "green": false}}, "HUMANA": {"JESSICA EZEJIMOFOR": {"status": "Submitted to Payor", "green": false}, "KARL WINEGAR": {"status": "Not Started", "green": false}, "MEGAN MORAN": {"status": "Submitted to Payor", "green": false}}, "HUMANA HEALTHY HORIZONS": {"JESSICA EZEJIMOFOR": {"status": "Submitted to Payor", "green": false}, "KARL WINEGAR": {"status": "Participating/Approved", "green": true}, "MEGAN MORAN": {"status": "Submitted to Payor", "green": false}}, "LA HEALTHCARE CONNECTIONS": {"JESSICA EZEJIMOFOR": {"status": "Participating/Approved", "green": true}, "KARL WINEGAR": {"status": "Participating/Approved", "green": true}, "MEGAN MORAN": {"status": "Submitted to Payor", "green": false}}, "MEDICAID": {"JESSICA EZEJIMOFOR": {"status": "Participating/Approved", "green": true}, "KARL WINEGAR": {"status": "Participating/Approved", "green": true}, "MEGAN MORAN": {"status": "Participating/Approved", "green": true}}, "MEDICARE": {"JESSICA EZEJIMOFOR": {"status": "Participating/Approved", "green": true}, "KARL WINEGAR": {"status": "Participating/Approved", "green": true}, "MEGAN MORAN": {"status": "Participating/Approved", "green": true}}, "PEOPLE'S HEALTH-UHC": {"JESSICA EZEJIMOFOR": {"status": "Participating/Approved", "green": true}, "KARL WINEGAR": {"status": "Participating/Approved", "green": true}, "MEGAN MORAN": {"status": "Participating/Approved", "green": true}}, "TRICARE WEST REGION": {"JESSICA EZEJIMOFOR": {"status": "Participating/Approved", "green": true}, "KARL WINEGAR": {"status": "CERTIFIED", "green": true}, "MEGAN MORAN": {"status": "Submitted to Payor", "green": false}}, "UHC": {"KARL WINEGAR": {"status": "Participating/Approved", "green": true}}, "UHC COMMUNITY PLAN-HEALTHY LA PLAN": {"JESSICA EZEJIMOFOR": {"status": "Particpating w/ Medicare and PPO only", "green": true}, "KARL WINEGAR": {"status": "Participating/Approved", "green": true}}, "UHC OPTUM BH": {"JESSICA EZEJIMOFOR": {"status": "Participating/Approved", "green": true}, "KARL WINEGAR": {"status": "Participating/Approved", "green": true}, "MEGAN MORAN": {"status": "Participating/Approved", "green": true}}, "VERITY HEALTH": {"JESSICA EZEJIMOFOR": {"status": "Participating/Approved", "green": true}, "KARL WINEGAR": {"status": "Participating/Approved", "green": true}, "MEGAN MORAN": {"status": "Participating/Approved", "green": true}}, "WELLCARE": {"JESSICA EZEJIMOFOR": {"status": "Participating/Approved", "green": true}, "KARL WINEGAR": {"status": "Participating/Approved", "green": true}, "MEGAN MORAN": {"status": "", "green": false}}}};
+
+const locations = Object.keys(DATA).sort();
+let activeTab = locations[0];
+let activeFilter = 'all';
+let searchTerm = '';
+
+function setFilter(el, f) {
+  activeFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  renderContent();
+}
+
+function applySearch() {
+  searchTerm = document.getElementById('search').value.toLowerCase().trim();
+  renderContent();
+}
+
+function switchTab(loc) {
+  activeTab = loc;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.loc === loc));
+  renderContent();
+}
+
+function renderTabs() {
+  const bar = document.getElementById('tabs-bar');
+  bar.innerHTML = locations.map(loc => {
+    const insurances = DATA[loc];
+    let total = 0, green = 0;
+    Object.values(insurances).forEach(provs => Object.values(provs).forEach(p => { total++; if (p.green) green++; }));
+    return `<button class="tab-btn${loc===activeTab?' active':''}" data-loc="${loc}" onclick="switchTab('${loc}')">${loc}<span style="margin-left:5px;font-size:10px;opacity:.6">${green}/${total}</span></button>`;
+  }).join('');
+}
+
+function getLocStats(loc) {
+  const insurances = DATA[loc];
+  let total = 0, green = 0;
+  Object.values(insurances).forEach(provs => Object.values(provs).forEach(p => { total++; if (p.green) green++; }));
+  return { total, green, red: total - green, pct: total ? Math.round(green/total*100) : 0 };
+}
+
+function renderContent() {
+  const loc = activeTab;
+  const insurances = DATA[loc];
+  const stats = getLocStats(loc);
+
+  let html = `<div class="stats-bar">
+    <div class="stat-card"><div class="stat-label">Total entries</div><div class="stat-val">${stats.total}</div><div class="stat-sub">${loc}</div></div>
+    <div class="stat-card green-card"><div class="stat-label">Participating / Approved</div><div class="stat-val">${stats.green}</div><div class="stat-sub">${stats.pct}% of entries</div></div>
+    <div class="stat-card red-card"><div class="stat-label">Non-approved</div><div class="stat-val">${stats.red}</div><div class="stat-sub">${100-stats.pct}% of entries</div></div>
+    <div class="stat-card"><div class="stat-label">Insurances</div><div class="stat-val">${Object.keys(insurances).length}</div><div class="stat-sub">across ${Object.values(insurances).reduce((s,p)=>{ Object.keys(p).forEach(k=>s.add(k)); return s;}, new Set()).size} providers</div></div>
+  </div>`;
+
+  const sortedIns = Object.keys(insurances).sort();
+  let anyVisible = false;
+
+  sortedIns.forEach(ins => {
+    const provs = insurances[ins];
+    const sortedProvs = Object.keys(provs).sort();
+    const matchIns = ins.toLowerCase().includes(searchTerm);
+    const matchingProvs = sortedProvs.filter(p => {
+      if (!p.toLowerCase().includes(searchTerm) && !matchIns) return false;
+      if (activeFilter === 'green' && !provs[p].green) return false;
+      if (activeFilter === 'red' && provs[p].green) return false;
+      return true;
+    });
+    if (matchingProvs.length === 0) return;
+    anyVisible = true;
+
+    const insTotal = matchingProvs.length;
+    const insGreen = matchingProvs.filter(p => provs[p].green).length;
+    const insPct = insTotal ? Math.round(insGreen/insTotal*100) : 0;
+    const insId = 'ins-' + ins.replace(/[^a-z0-9]/gi,'_') + '_' + loc.replace(/[^a-z0-9]/gi,'_');
+
+    const cards = matchingProvs.map(prov => {
+      const d = provs[prov];
+      return `<div class="prov-card ${d.green?'green':'red'}">
+        <div class="prov-name">${prov}</div>
+        <div class="prov-status">${d.status||'No status'}</div>
+      </div>`;
+    }).join('');
+
+    html += `<div class="ins-section">
+      <div class="ins-header" onclick="toggleIns('${insId}')">
+        <span class="ins-name">${ins}</span>
+        <div class="ins-meta">
+          <span class="ins-pct">${insGreen}/${insTotal} approved</span>
+          <div class="mini-bar"><div class="mini-fill" style="width:${insPct}%"></div></div>
+          <span class="chevron" id="chev-${insId}">▼</span>
+        </div>
+      </div>
+      <div class="ins-body" id="${insId}">
+        <div class="provider-grid">${cards}</div>
+      </div>
+    </div>`;
+  });
+
+  if (!anyVisible) html += `<div class="empty">No results match your search or filter.</div>`;
+  document.getElementById('content').innerHTML = `<div class="tab-panel active">${html}</div>`;
+}
+
+function toggleIns(id) {
+  const body = document.getElementById(id);
+  const chev = document.getElementById('chev-' + id);
+  const open = body.classList.toggle('open');
+  if (chev) chev.classList.toggle('open', open);
+}
+
+renderTabs();
+renderContent();
+</script>
+</body>
+</html>
